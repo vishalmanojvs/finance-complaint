@@ -1,107 +1,26 @@
+# Use the latest 2.1 version of CircleCI pipeline process engine.
+# See: https://circleci.com/docs/2.0/configuration-reference
 version: 2.1
 
+# Define a job to be invoked later in a workflow.
+# See: https://circleci.com/docs/2.0/configuration-reference/#jobs
 jobs:
-  continuous-integration:
+  say-hello:
+    # Specify the execution environment. You can specify an image from Dockerhub or use one of our Convenience Images from CircleCI's Developer Hub.
+    # See: https://circleci.com/docs/2.0/configuration-reference/#docker-machine-macos-windows-executor
     docker:
       - image: cimg/base:stable
-    resource_class: medium
-    steps:
-      - checkout
-
-      - run: 
-          name: lint code
-          command: echo "Linting repository"
-
-      - run: 
-          name: run unit tests
-          command: echo "Running unit tests"
-  
-  continuous-delivery:
-    docker:
-      - image: google/cloud-sdk
-    resource_class: medium
-    environment:
-      REPOSITORY: finance-complaint
-      IMAGE_NAME: finance-complaint
-      IMAGE_TAG: latest
+    # Add steps to the job
+    # See: https://circleci.com/docs/2.0/configuration-reference/#steps
     steps:
       - checkout
       - run:
-          name: google cloud authentication
-          command: |
-            echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
-            gcloud --quiet config set project ${GOOGLE_PROJECT_ID}
-            gcloud --quiet config set compute/zone ${GOOGLE_COMPUTE_ZONE}
+          name: "Say hello"
+          command: "echo Hello, World!"
 
-      - setup_remote_docker:
-          version: 20.10.14
-          docker_layer_caching: true
-
-      - run:
-          name: build and tag
-          command: docker build -t $GOOGLE_COMPUTE_ZONE-docker.pkg.dev/${GOOGLE_PROJECT_ID}/$REPOSITORY/$IMAGE_NAME:$IMAGE_TAG .
-
-      - run: 
-          name: configure docker login
-          command: gcloud auth configure-docker $GOOGLE_COMPUTE_ZONE-docker.pkg.dev
-      
-      - run:
-          name: push to private repository
-          command: docker push $GOOGLE_COMPUTE_ZONE-docker.pkg.dev/${GOOGLE_PROJECT_ID}/$REPOSITORY/$IMAGE_NAME:$IMAGE_TAG 
-
-  continuous-deployment:
-    machine: true
-    resource_class: machine-learning-01/self-hosted-1
-    environment:
-      REPOSITORY: finance-complaint
-      GAR_IMAGE_NAME: finance-complaint
-      IMAGE_TAG: latest
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_DEFAULT_REGION: "ap-south-1"
-      MONGO_DB_URL: ${MONGO_DB_URL}
-    steps:
-      - checkout
-
-      - run:
-          name: google cloud authentication
-          command: |
-            echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
-            gcloud --quiet config set project ${GOOGLE_PROJECT_ID}
-            gcloud --quiet config set compute/zone ${GOOGLE_COMPUTE_ZONE}
-
-      - run: 
-          name: configure docker login
-          command: gcloud auth configure-docker $GOOGLE_COMPUTE_ZONE-docker.pkg.dev
-
-      - run:
-          name: pull image from private repository
-          command: docker pull ${GOOGLE_COMPUTE_ZONE}-docker.pkg.dev/${GOOGLE_PROJECT_ID}/$REPOSITORY/$GAR_IMAGE_NAME:$IMAGE_TAG 
-        
-      - run: 
-          name: Set env variable
-          command: echo 'export IMAGE_NAME="${GOOGLE_COMPUTE_ZONE}-docker.pkg.dev/${GOOGLE_PROJECT_ID}/$REPOSITORY/finance-complaint:$IMAGE_TAG"' >> "$BASH_ENV"
-
-      - run:
-          name: start the containers
-          command: docker-compose up -d
-  
+# Invoke jobs via workflows
+# See: https://circleci.com/docs/2.0/configuration-reference/#workflows
 workflows:
-  CICD:
+  say-hello-workflow:
     jobs:
-      - continuous-integration
-
-      - continuous-delivery:
-          requires:
-            - continuous-integration
-
-      - sanity-check:
-          type: approval
-          requires:
-          - continuous-delivery
-
-      - continuous-deployment:
-          requires:
-            - sanity-check
-            - continuous-integration
-            - continuous-delivery
+      - say-hello
